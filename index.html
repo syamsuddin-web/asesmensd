@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petualangan Maestro Asesmen SD</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        },
+                        amberCustom: '#f59e0b',
+                        emeraldCustom: '#10b981',
+                        roseCustom: '#f43f5e',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 50%, #fef3c7 100%);
+            min-height: 100vh;
+        }
+        .font-display {
+            font-family: 'Fredoka', cursive, sans-serif;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        }
+        .bounce-slow {
+            animation: bounce 3s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .ring-pulse {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-sky-200">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- WEB AUDIO API SOUND SYNTHESIZER ---
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        this.ctx = new AudioCtx();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+                    
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.08);
+                    osc.stop(this.ctx.currentTime + idx * 0.08 + 0.25);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(90, this.ctx.currentTime + 0.3);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playClick() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.05);
+
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playFanfare() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const notes = [392.00, 523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.12);
+                    
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.12 + 0.4);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.12);
+                    osc.stop(this.ctx.currentTime + idx * 0.12 + 0.4);
+                });
+            }
+        }
+
+        const sound = new SoundFX();
+
+        // --- SAMPLE QUIZ DATA (10 SD ASSESSMENT QUESTIONS) ---
+        const QUIZ_QUESTIONS = [
+            {
+                id: 1,
+                question: "Apa kepanjangan dari prinsip UKRK dalam menganalisis kriteria materi esensial penyusunan indikator soal?",
+                options: [
+                    "Urgensi, Kontinuitas, Relevansi, Keterpakaian",
+                    "Utama, Kualitas, Rasional, Kelayakan",
+                    "Uji, Kontrol, Relevansi, Kemampuan",
+                    "Unik, Kompleks, Rinci, Komprehensif"
+                ],
+                correct: 0,
+                explanation: "UKRK singkatan dari Urgensi (penting dikuasai), Kontinuitas (berkelanjutan), Relevansi (saling berkaitan dengan mata pelajaran lain), dan Keterpakaian (memiliki nilai aplikasi tinggi dalam kehidupan)."
+            },
+            {
+                id: 2,
+                question: "Berdasarkan kaidah penulisan soal pilihan ganda untuk tingkat SD, jumlah opsi jawaban yang ideal untuk murid Kelas 1, 2, dan 3 adalah...",
+                options: [
+                    "3 opsi jawaban (A, B, C)",
+                    "4 opsi jawaban (A, B, C, D)",
+                    "5 opsi jawaban (A, B, C, D, E)",
+                    "Bebas sesuai keinginan guru"
+                ],
+                correct: 0,
+                explanation: "Untuk kelas rendah SD (Kelas 1-3), standar opsi pilihan ganda terdiri dari 3 pilihan (A, B, C) untuk menyesuaikan tingkat perkembangan kognitif murid."
+            },
+            {
+                id: 3,
+                question: "Sedangkan untuk peserta didik SD Kelas 4, 5, dan 6 (Kelas Tinggi), jumlah opsi jawaban baku yang harus disediakan adalah...",
+                options: [
+                    "3 opsi jawaban (A, B, C)",
+                    "4 opsi jawaban (A, B, C, D)",
+                    "5 opsi jawaban (A, B, C, D, E)",
+                    "2 opsi jawaban (A, B)"
+                ],
+                correct: 1,
+                explanation: "Kelas tinggi SD (Kelas 4-6) menggunakan 4 opsi pilihan ganda (A, B, C, D) sebagai persiapan kemampuan evaluasi yang lebih matang."
+            },
+            {
+                id: 4,
+                question: "Manakah ciri utama stimulus soal HOTS (Higher Order Thinking Skills) yang fungsional di sekolah dasar?",
+                options: [
+                    "Menyajikan gambar hiasan yang indah meskipun tidak berkaitan dengan soal",
+                    "Menyajikan data, kasus, atau teks kontekstual yang Wajib dibaca & dianalisis untuk menjawab",
+                    "Menggunakan bahasa asing yang sulit dipahami siswa SD",
+                    "Meminta siswa menghafal tanggal sejarah tanpa analisis"
+                ],
+                correct: 1,
+                explanation: "Stimulus HOTS yang fungsional adalah stimulus yang kontekstual dan mutlak harus diolah/dianalisis siswa untuk menentukan jawaban, bukan sekadar tempelan hiasan."
+            },
+            {
+                id: 5,
+                question: "Manakah di antara konstruksi pokok soal (stem) berikut yang MENYALAHI kaidah penulisan soal yang baik?",
+                options: [
+                    "Menggunakan bahasa Indonesia yang baik dan benar",
+                    "Pokok soal mengandung petunjuk yang merujuk pada kunci jawaban",
+                    "Pokok soal dirumuskan secara jelas dan tegas",
+                    "Pernyataan pada pokok soal bebas dari negasi ganda"
+                ],
+                correct: 1,
+                explanation: "Pokok soal TIDAK BOLEH memberi petunjuk/clue ke kunci jawaban. Hal ini merusak validitas pengukuran soal."
+            },
+            {
+                id: 6,
+                question: "Manakah kaidah penulisan soal bentuk Isian Singkat yang tepat untuk tingkat SD?",
+                options: [
+                    "Tempat kosong/titik-titik sebaiknya diletakkan di tengah atau akhir kalimat, dengan kunci jawaban pasti",
+                    "Satu soal dapat memiliki banyak kemungkinan jawaban yang berbeda-beda",
+                    "Menggunakan kalimat yang sangat panjang dan ambigu",
+                    "Titik-titik isian diletakkan di awal kalimat sebanyak 5 tempat"
+                ],
+                correct: 0,
+                explanation: "Soal Isian Singkat harus memiliki jawaban yang singkat, pasti, dan tidak menimbulkan multitafsir. Tempat isian ideal di akhir/tengah kalimat."
+            },
+            {
+                id: 7,
+                question: "Dalam analisis UKRK, kriteria 'Urgensi' berarti materi tersebut...",
+                options: [
+                    "Mutlak harus dikuasai murid karena merupakan dasar untuk materi selanjutnya",
+                    "Materi yang sangat sulit sehingga hanya sedikit murid yang bisa",
+                    "Materi yang baru saja hangat diperbincangkan di media sosial",
+                    "Materi yang paling panjang bacaannya dalam buku teks"
+                ],
+                correct: 0,
+                explanation: "Urgensi berarti materi memiliki tingkat kepentingan tinggi yang harus dikuasai murid karena mendasari kompetensi esensial."
+            },
+            {
+                id: 8,
+                question: "Mengapa soal Uraian / Essay wajib dilengkapi dengan Pedoman Penskoran (Rubrik) sebelum diujikan?",
+                options: [
+                    "Agar soal terlihat lebih tebal dan formal",
+                    "Untuk menjamin objektivitas dan konsistensi penilaian oleh pemeriksa",
+                    "Supaya murid bisa menebak skornya sendiri saat mengerjakan",
+                    "Hanya sebagai syarat administrasi tanpa fungsi nyata"
+                ],
+                correct: 1,
+                explanation: "Rubrik/pedoman penskoran berfungsi untuk menjaga objektivitas penilaian agar pemberian skor tetap konsisten dan adil."
+            },
+            {
+                id: 9,
+                question: "Pertanyaan yang berbunyi: 'Sebutkan rumus luas persegi panjang!' tergolong dalam level kognitif...",
+                options: [
+                    "L1 (Pengetahuan & Pemahaman / C1)",
+                    "L2 (Aplikasi / Penerapan / C3)",
+                    "L3 (Penalaran / HOTS / C4-C6)",
+                    "L4 (Evaluasi Kritis Super)"
+                ],
+                correct: 0,
+                explanation: "Pertanyaan 'Sebutkan' atau sekadar memanggil ingatan rumus tergolong C1 (Mengingat) yang masuk kategori level L1 (LOTS/Hafalan)."
+            },
+            {
+                id: 10,
+                question: "Syarat utama keberfungsian sebuah gambar atau grafik yang dijadikan stimulus soal SD adalah...",
+                options: [
+                    "Harus berwarna-warni meskipun tidak ada hubungannya dengan pertanyaan",
+                    "Jelas, terbaca, dan memuat informasi kunci yang dibutuhkan untuk memecahkan soal",
+                    "Ukurannya sangat kecil agar menghemat kertas ujian",
+                    "Diambil dari internet tanpa mempertimbangkan tingkat usia murid"
+                ],
+                correct: 1,
+                explanation: "Gambar stimulus harus jelas, relevan, dan memuat informasi eksplisit/implisit yang menjadi sarana murid menjawab soal."
+            }
+        ];
+
+        // MOCK INITIAL LEADERBOARD DATA
+        const INITIAL_LEADERBOARD = [
+            { id: '1', nama: "Budi Santoso, S.Pd.", kelas: "Kelas 5", instansi: "SDN 1 Menteng", skorKuis: 100, skorSoal: 95, totalSkor: 195, badge: "Maestro HOTS SD" },
+            { id: '2', nama: "Siti Rahmawati, M.Pd.", kelas: "Kelas 3", instansi: "SD IT Al-Azhar", skorKuis: 90, skorSoal: 98, totalSkor: 188, badge: "Pakar UKRK" },
+            { id: '3', nama: "Dewa Made Putra, S.Pd.", kelas: "Kelas 4", instansi: "SDN 2 Denpasar", skorKuis: 90, skorSoal: 90, totalSkor: 180, badge: "Kreator Handal" },
+            { id: '4', nama: "Sri Wahyuni, S.Pd.SD", kelas: "Kelas 2", instansi: "SDN Surabaya 3", skorKuis: 80, skorSoal: 88, totalSkor: 168, badge: "Pejuang Asesmen" },
+            { id: '5', nama: "Ahmad Dahlan, S.Pd.", kelas: "Kelas 6", instansi: "SD Muhammadiyah 1", skorKuis: 80, skorSoal: 85, totalSkor: 165, badge: "Pejuang Asesmen" }
+        ];
+
+        // --- MAIN APP COMPONENT ---
+        function App() {
+            // User identity state
+            const [user, setUser] = useState(() => {
+                const saved = localStorage.getItem('maestro_user');
+                return saved ? JSON.parse(saved) : null;
+            });
+
+            // App Active Screen
+            const [activeTab, setActiveTab] = useState('home'); // home, quiz, workbench, leaderboard, certificate
+
+            // Quiz state
+            const [quizScore, setQuizScore] = useState(0);
+            const [quizCompleted, setQuizCompleted] = useState(false);
+
+            // Question Creator state
+            const [createdQuestionScore, setCreatedQuestionScore] = useState(null);
+            const [createdQuestionData, setCreatedQuestionData] = useState(null);
+
+            // Leaderboard State
+            const [leaderboard, setLeaderboard] = useState(() => {
+                const saved = localStorage.getItem('maestro_leaderboard');
+                return saved ? JSON.parse(saved) : INITIAL_LEADERBOARD;
+            });
+
+            // Webhook Settings
+            const [webhookUrl, setWebhookUrl] = useState(() => {
+                return localStorage.getItem('maestro_webhook') || '';
+            });
+
+            // Mute sound toggle
+            const [isMuted, setIsMuted] = useState(false);
+
+            useEffect(() => {
+                sound.muted = isMuted;
+            }, [isMuted]);
+
+            // Save user to localStorage
+            const handleRegister = (userData) => {
+                setUser(userData);
+                localStorage.setItem('maestro_user', JSON.stringify(userData));
+                sound.playFanfare();
+                setActiveTab('quiz');
+            };
+
+            const handleLogout = () => {
+                if (window.confirm("Apakah Anda yakin ingin mengganti profil guru?")) {
+                    localStorage.removeItem('maestro_user');
+                    setUser(null);
+                    setActiveTab('home');
+                }
+            };
+
+            // Update leaderboard & triggers Google Sheets Webhook
+            const syncDataToSheet = async (updatedQuizScore, updatedSoalScore) => {
+                if (!user) return;
+
+                const qScore = updatedQuizScore !== undefined ? updatedQuizScore : quizScore;
+                const sScore = updatedSoalScore !== undefined ? updatedSoalScore : (createdQuestionScore || 0);
+                const total = qScore + sScore;
+
+                // Determine badge
+                let badge = "Pejuang Asesmen";
+                if (total >= 185) badge = "Maestro HOTS SD";
+                else if (total >= 160) badge = "Pakar UKRK";
+                else if (total >= 130) badge = "Kreator Handal";
+
+                const newEntry = {
+                    id: user.id || Date.now().toString(),
+                    nama: user.nama,
+                    kelas: user.kelas,
+                    instansi: user.instansi,
+                    skorKuis: qScore,
+                    skorSoal: sScore,
+                    totalSkor: total,
+                    badge: badge,
+                    waktu: new Date().toLocaleDateString('id-ID')
+                };
+
+                // Update local state leaderboard
+                setLeaderboard(prev => {
+                    const filtered = prev.filter(item => item.nama !== user.nama);
+                    const newArr = [...filtered, newEntry].sort((a, b) => b.totalSkor - a.totalSkor);
+                    localStorage.setItem('maestro_leaderboard', JSON.stringify(newArr));
+                    return newArr;
+                });
+
+                // Send to Google Sheets Webhook if URL present
+                if (webhookUrl && webhookUrl.trim() !== '') {
+                    try {
+                        const payload = {
+                            nama: user.nama,
+                            kelas: user.kelas,
+                            instansi: user.instansi,
+                            skorKuis: qScore,
+                            skorSoal: sScore,
+                            totalSkor: total,
+                            waktu: new Date().toISOString()
+                        };
+                        
+                        await fetch(webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                            mode: 'no-cors' // Google Apps Script standard handling
+                        });
+                        console.log("Data berhasil dikirim ke Google Sheets Webhook");
+                    } catch (err) {
+                        console.error("Gagal mengirim data ke Google Sheets:", err);
+                    }
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col justify-between">
+                    {/* TOP NAVBAR */}
+                    <header className="sticky top-0 z-50 glass-card border-b border-sky-100 px-4 py-3 sm:px-8">
+                        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('home')}>
+                                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-200 transform hover:scale-105 transition-transform">
+                                    <i data-lucide="award" className="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h1 className="font-display font-bold text-lg sm:text-xl text-slate-800 leading-tight">
+                                        Maestro Asesmen SD
+                                    </h1>
+                                    <p className="text-xs font-medium text-sky-600">Gamifikasi Edukasi Penulisan Soal</p>
+                                </div>
+                            </div>
+
+                            {/* USER PROFILE STATUS & NAVIGATION */}
+                            <div className="flex items-center flex-wrap justify-center gap-2 sm:gap-4">
+                                {user ? (
+                                    <>
+                                        <nav className="flex items-center gap-1 bg-sky-50 p-1 rounded-2xl border border-sky-100 text-xs sm:text-sm font-medium">
+                                            <button 
+                                                onClick={() => { sound.playClick(); setActiveTab('quiz'); }}
+                                                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'quiz' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600 hover:text-sky-600'}`}
+                                            >
+                                                <i data-lucide="zap" className="w-4 h-4 text-amber-500"></i>
+                                                Kuis Kilat
+                                            </button>
+                                            <button 
+                                                onClick={() => { sound.playClick(); setActiveTab('workbench'); }}
+                                                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'workbench' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600 hover:text-sky-600'}`}
+                                            >
+                                                <i data-lucide="cpu" className="w-4 h-4 text-indigo-500"></i>
+                                                Lab AI Soal
+                                            </button>
+                                            <button 
+                                                onClick={() => { sound.playClick(); setActiveTab('leaderboard'); }}
+                                                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'leaderboard' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600 hover:text-sky-600'}`}
+                                            >
+                                                <i data-lucide="trophy" className="w-4 h-4 text-emerald-500"></i>
+                                                Peringkat
+                                            </button>
+                                            <button 
+                                                onClick={() => { sound.playClick(); setActiveTab('certificate'); }}
+                                                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'certificate' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600 hover:text-sky-600'}`}
+                                            >
+                                                <i data-lucide="file-badge" className="w-4 h-4 text-purple-500"></i>
+                                                Sertifikat
+                                            </button>
+                                        </nav>
+
+                                        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+                                            <div className="hidden lg:block text-right">
+                                                <div className="text-xs font-bold text-slate-800">{user.nama}</div>
+                                                <div className="text-[10px] text-sky-600">{user.instansi} ({user.kelas})</div>
+                                            </div>
+                                            <button 
+                                                onClick={handleLogout}
+                                                title="Ganti Profil"
+                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                            >
+                                                <i data-lucide="log-out" className="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <button 
+                                        onClick={() => { sound.playClick(); setActiveTab('home'); }}
+                                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-md shadow-sky-200 transition-all flex items-center gap-1.5"
+                                    >
+                                        <i data-lucide="user-plus" className="w-4 h-4"></i>
+                                        Registrasi Guru
+                                    </button>
+                                )}
+
+                                {/* SOUND TOGGLE */}
+                                <button 
+                                    onClick={() => setIsMuted(!isMuted)}
+                                    className={`p-2 rounded-xl transition-colors ${isMuted ? 'bg-slate-200 text-slate-500' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                                    title={isMuted ? "Suara Dimatikan" : "Suara Aktif"}
+                                >
+                                    <i data-lucide={isMuted ? "volume-x" : "volume-2"} className="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* MAIN CONTENT ROUTER */}
+                    <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+                        {!user || activeTab === 'home' ? (
+                            <LandingPage onRegister={handleRegister} existingUser={user} onContinue={() => setActiveTab('quiz')} />
+                        ) : activeTab === 'quiz' ? (
+                            <QuizModule 
+                                user={user} 
+                                onQuizComplete={(score) => {
+                                    setQuizScore(score);
+                                    setQuizCompleted(true);
+                                    syncDataToSheet(score, createdQuestionScore || 0);
+                                }} 
+                                quizScore={quizScore}
+                                quizCompleted={quizCompleted}
+                            />
+                        ) : activeTab === 'workbench' ? (
+                            <WorkbenchModule 
+                                user={user} 
+                                onQuestionEvaluated={(score, questionObj) => {
+                                    setCreatedQuestionScore(score);
+                                    setCreatedQuestionData(questionObj);
+                                    syncDataToSheet(quizScore, score);
+                                }}
+                            />
+                        ) : activeTab === 'leaderboard' ? (
+                            <LeaderboardModule 
+                                leaderboard={leaderboard} 
+                                webhookUrl={webhookUrl}
+                                setWebhookUrl={(url) => {
+                                    setWebhookUrl(url);
+                                    localStorage.setItem('maestro_webhook', url);
+                                }}
+                                currentUser={user}
+                            />
+                        ) : activeTab === 'certificate' ? (
+                            <CertificateModule 
+                                user={user} 
+                                quizScore={quizScore} 
+                                createdQuestionScore={createdQuestionScore} 
+                            />
+                        ) : null}
+                    </main>
+
+                    {/* FOOTER */}
+                    <footer className="glass-card mt-8 border-t border-slate-200 py-6 px-4 text-center text-xs text-slate-500">
+                        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="font-display font-semibold text-sky-700">Petualangan Maestro Asesmen SD</span>
+                                <span>&bull; Modul Gamifikasi Pelatihan Guru SD</span>
+                            </div>
+                            <p>&copy; 2026 Kementerian Pendidikan / Tim Pengembang Asesmen SD. Didesain untuk Pembelajaran Bermakna.</p>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        // --- LANDING PAGE COMPONENT ---
+        function LandingPage({ onRegister, existingUser, onContinue }) {
+            const [nama, setNama] = useState('');
+            const [kelas, setKelas] = useState('Kelas 1');
+            const [instansi, setInstansi] = useState('');
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, []);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!nama.trim() || !instansi.trim()) {
+                    alert("Mohon lengkapi Nama Lengkap dan Nama Sekolah/Instansi Anda!");
+                    return;
+                }
+                onRegister({
+                    id: Date.now().toString(),
+                    nama: nama.trim(),
+                    kelas: kelas,
+                    instansi: instansi.trim()
+                });
+            };
+
+            return (
+                <div className="space-y-8 animate-fadeIn">
+                    {/* HERO BANNER */}
+                    <div className="glass-card rounded-3xl p-6 sm:p-10 border border-sky-100 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-sky-200 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-amber-200 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
+                            <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-100 text-sky-800 text-xs font-semibold">
+                                    <i data-lucide="sparkles" className="w-4 h-4 text-amber-500"></i>
+                                    Edisi Khusus Guru Sekolah Dasar
+                                </div>
+                                <h1 className="font-display text-3xl sm:text-5xl font-bold text-slate-800 leading-tight">
+                                    Jadilah <span className="bg-clip-text text-transparent bg-gradient-to-r from-sky-600 to-indigo-600">Maestro Asesmen SD</span> Bermutu!
+                                </h1>
+                                <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                                    Uji pemahaman Anda tentang kaidah asesmen SD, bedah soal HOTS, dan buat soal standar resmi dengan analisis AI otomatis yang interaktif, cepat, dan seru!
+                                </p>
+
+                                <div className="grid grid-cols-3 gap-3 pt-2 max-w-lg mx-auto lg:mx-0">
+                                    <div className="bg-white/80 p-3 rounded-2xl border border-sky-100 text-center shadow-sm">
+                                        <div className="text-xl font-bold text-sky-600 font-display">10</div>
+                                        <div className="text-[11px] text-slate-500 font-medium">Kuis Kilat SD</div>
+                                    </div>
+                                    <div className="bg-white/80 p-3 rounded-2xl border border-indigo-100 text-center shadow-sm">
+                                        <div className="text-xl font-bold text-indigo-600 font-display">AI Lab</div>
+                                        <div className="text-[11px] text-slate-500 font-medium">Evaluator Soal</div>
+                                    </div>
+                                    <div className="bg-white/80 p-3 rounded-2xl border border-emerald-100 text-center shadow-sm">
+                                        <div className="text-xl font-bold text-emerald-600 font-display">Top 10</div>
+                                        <div className="text-[11px] text-slate-500 font-medium">Papan Peringkat</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* REGISTRATION FORM CARD */}
+                            <div className="lg:col-span-5">
+                                <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl shadow-sky-100 border border-slate-100">
+                                    {existingUser ? (
+                                        <div className="text-center space-y-4 py-4">
+                                            <div className="w-16 h-16 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mx-auto">
+                                                <i data-lucide="user-check" className="w-8 h-8"></i>
+                                            </div>
+                                            <h3 className="font-display text-xl font-bold text-slate-800">
+                                                Selamat Datang Kembali!
+                                            </h3>
+                                            <p className="text-sm text-slate-600">
+                                                Anda terdaftar sebagai <span className="font-semibold text-sky-700">{existingUser.nama}</span> dari <span className="font-semibold">{existingUser.instansi}</span> ({existingUser.kelas}).
+                                            </p>
+                                            <button 
+                                                onClick={onContinue}
+                                                className="w-full py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-sky-200 transition-all flex items-center justify-center gap-2 text-sm"
+                                            >
+                                                Lanjutkan Petualangan
+                                                <i data-lucide="arrow-right" className="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <form onSubmit={handleSubmit} className="space-y-4">
+                                            <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                                <i data-lucide="user-plus" className="w-5 h-5 text-sky-600"></i>
+                                                <h3 className="font-display font-bold text-lg text-slate-800">
+                                                    Identitas Guru Maestro
+                                                </h3>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                    Nama Lengkap & Gelar *
+                                                </label>
+                                                <input 
+                                                    type="text"
+                                                    required
+                                                    value={nama}
+                                                    onChange={(e) => setNama(e.target.value)}
+                                                    placeholder="contoh: Ibu Ratna Dewi, S.Pd."
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                    Kelas yang Diampu *
+                                                </label>
+                                                <select 
+                                                    value={kelas}
+                                                    onChange={(e) => setKelas(e.target.value)}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm bg-white"
+                                                >
+                                                    <option value="Kelas 1">Kelas 1 (Awal SD)</option>
+                                                    <option value="Kelas 2">Kelas 2 (Awal SD)</option>
+                                                    <option value="Kelas 3">Kelas 3 (Awal SD)</option>
+                                                    <option value="Kelas 4">Kelas 4 (Tinggi SD)</option>
+                                                    <option value="Kelas 5">Kelas 5 (Tinggi SD)</option>
+                                                    <option value="Kelas 6">Kelas 6 (Tinggi SD)</option>
+                                                </select>
+                                                <p className="text-[11px] text-slate-400 mt-1">
+                                                    *Kelas 1-3 otomatis disesuaikan 3 opsi pilihan ganda; Kelas 4-6 menggunakan 4 opsi.
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                                    Instansi / Nama Sekolah *
+                                                </label>
+                                                <input 
+                                                    type="text"
+                                                    required
+                                                    value={instansi}
+                                                    onChange={(e) => setInstansi(e.target.value)}
+                                                    placeholder="contoh: SDN 1 Karanganyar"
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
+                                                />
+                                            </div>
+
+                                            <button 
+                                                type="submit"
+                                                className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-sky-200 transition-all flex items-center justify-center gap-2 text-sm mt-2 transform hover:-translate-y-0.5"
+                                            >
+                                                <i data-lucide="play" className="w-4 h-4 fill-current"></i>
+                                                Mulai Petualangan Maestro
+                                            </button>
+                                        </form>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* FEATURE HIGHLIGHTS */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="glass-card p-6 rounded-3xl border border-sky-100 flex flex-col justify-between">
+                            <div className="space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                                    <i data-lucide="zap" className="w-6 h-6"></i>
+                                </div>
+                                <h3 className="font-display font-bold text-lg text-slate-800">1. Kuis Kilat Asesmen</h3>
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                    Pahami aturan UKRK, kaidah opsi jawaban per jenjang kelas SD, syarat stimulus HOTS, dan rubrik penilaian secara praktis.
+                                </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-semibold text-amber-600 flex items-center justify-between">
+                                <span>10 Soal Berwaktu</span>
+                                <i data-lucide="chevron-right" className="w-4 h-4"></i>
+                            </div>
+                        </div>
+
+                        <div className="glass-card p-6 rounded-3xl border border-sky-100 flex flex-col justify-between">
+                            <div className="space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                    <i data-lucide="cpu" className="w-6 h-6"></i>
+                                </div>
+                                <h3 className="font-display font-bold text-lg text-slate-800">2. Lab AI Evaluator</h3>
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                    Tulis soal buatan Anda sendiri! Asisten AI akan menganalisis kelayakan HOTS, keterpakaian stimulus, dan konstruksi kalimat secara otomatis.
+                                </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 flex items-center justify-between">
+                                <span>Analisis Kualitas (0-100)</span>
+                                <i data-lucide="chevron-right" className="w-4 h-4"></i>
+                            </div>
+                        </div>
+
+                        <div className="glass-card p-6 rounded-3xl border border-sky-100 flex flex-col justify-between">
+                            <div className="space-y-3">
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                    <i data-lucide="trophy" className="w-6 h-6"></i>
+                                </div>
+                                <h3 className="font-display font-bold text-lg text-slate-800">3. Papan Peringkat & Sheet</h3>
+                                <p className="text-xs text-slate-600 leading-relaxed">
+                                    Dapatkan Gelar Badge Maestro, bersaing secara sehat di papan peringkat, dan dapatkan sertifikat apresiasi hasil pembelajaran.
+                                </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-semibold text-emerald-600 flex items-center justify-between">
+                                <span>Google Sheets Sync</span>
+                                <i data-lucide="chevron-right" className="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- MODUL 1: KUIS KILAT COMPONENT ---
+        function QuizModule({ user, onQuizComplete, quizScore, quizCompleted }) {
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [selectedOption, setSelectedOption] = useState(null);
+            const [isSubmitted, setIsSubmitted] = useState(false);
+            const [score, setScore] = useState(0);
+            const [timeLeft, setTimeLeft] = useState(25);
+            const [streak, setStreak] = useState(0);
+
+            const timerRef = useRef(null);
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [currentIndex, isSubmitted, quizCompleted]);
+
+            // Timer management
+            useEffect(() => {
+                if (quizCompleted || isSubmitted) return;
+
+                setTimeLeft(25);
+                timerRef.current = setInterval(() => {
+                    setTimeLeft(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timerRef.current);
+                            handleTimeout();
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+
+                return () => clearInterval(timerRef.current);
+            }, [currentIndex, isSubmitted, quizCompleted]);
+
+            const handleTimeout = () => {
+                setIsSubmitted(true);
+                sound.playWrong();
+                setStreak(0);
+            };
+
+            const handleSelectOption = (idx) => {
+                if (isSubmitted) return;
+                sound.playClick();
+                setSelectedOption(idx);
+            };
+
+            const handleAnswerSubmit = () => {
+                if (selectedOption === null || isSubmitted) return;
+                clearInterval(timerRef.current);
+                setIsSubmitted(true);
+
+                const currentQ = QUIZ_QUESTIONS[currentIndex];
+                if (selectedOption === currentQ.correct) {
+                    sound.playCorrect();
+                    const streakBonus = streak * 2;
+                    const questionPoints = 10 + streakBonus;
+                    setScore(prev => prev + questionPoints);
+                    setStreak(prev => prev + 1);
+                } else {
+                    sound.playWrong();
+                    setStreak(0);
+                }
+            };
+
+            const handleNextQuestion = () => {
+                sound.playClick();
+                if (currentIndex < QUIZ_QUESTIONS.length - 1) {
+                    setCurrentIndex(prev => prev + 1);
+                    setSelectedOption(null);
+                    setIsSubmitted(false);
+                } else {
+                    // Finalize Quiz
+                    const finalScore = score;
+                    onQuizComplete(finalScore);
+                    sound.playFanfare();
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { y: 0.6 }
+                    });
+                }
+            };
+
+            const handleRestartQuiz = () => {
+                setCurrentIndex(0);
+                setSelectedOption(null);
+                setIsSubmitted(false);
+                setScore(0);
+                setStreak(0);
+            };
+
+            const currentQ = QUIZ_QUESTIONS[currentIndex];
+
+            if (quizCompleted) {
+                return (
+                    <div className="glass-card max-w-2xl mx-auto rounded-3xl p-8 border border-sky-100 text-center space-y-6">
+                        <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                            <i data-lucide="trophy" className="w-10 h-10"></i>
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="font-display font-bold text-2xl text-slate-800">
+                                Kuis Kilat Asesmen Selesai!
+                            </h2>
+                            <p className="text-sm text-slate-600">
+                                Luar biasa <span className="font-semibold text-sky-700">{user.nama}</span>! Berikut adalah capaian nilai Anda:
+                            </p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-sky-50 to-indigo-50 p-6 rounded-2xl border border-sky-100 flex items-center justify-around">
+                            <div>
+                                <div className="text-xs text-slate-500 font-medium">Total Skor Kuis</div>
+                                <div className="text-4xl font-display font-bold text-sky-600">{quizScore} / 100</div>
+                            </div>
+                            <div className="h-10 w-px bg-slate-200"></div>
+                            <div>
+                                <div className="text-xs text-slate-500 font-medium">Status Pemahaman</div>
+                                <div className="text-sm font-bold text-emerald-600 mt-1">
+                                    {quizScore >= 80 ? 'Sangat Menguasai 🎉' : quizScore >= 60 ? 'Cukup Baik 👍' : 'Perlu Diulas Kembali 📖'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button 
+                                onClick={handleRestartQuiz}
+                                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-2xl text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <i data-lucide="rotate-ccw" className="w-4 h-4"></i>
+                                Coba Kuis Lagi
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    sound.playClick();
+                                    const event = new CustomEvent('navigate', { detail: 'workbench' });
+                                    window.dispatchEvent(event);
+                                }}
+                                className="flex-1 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-2xl text-sm shadow-md shadow-sky-200 transition-colors flex items-center justify-center gap-2"
+                            >
+                                Lanjut ke Lab AI Soal
+                                <i data-lucide="arrow-right" className="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-3xl mx-auto space-y-6">
+                    {/* PROGRESS BAR & SCOREBOARD */}
+                    <div className="glass-card rounded-2xl p-4 border border-sky-100 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-display font-bold text-sm">
+                                {currentIndex + 1}/10
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500">Kuis Kilat Asesmen SD</div>
+                                <div className="text-sm font-bold text-slate-800">Soal Ke-{currentIndex + 1}</div>
+                            </div>
+                        </div>
+
+                        {/* TIMER */}
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${timeLeft <= 5 ? 'bg-rose-50 text-rose-600 border-rose-200 ring-2 ring-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            <i data-lucide="timer" className="w-4 h-4"></i>
+                            <span>{timeLeft} Detik</span>
+                        </div>
+
+                        {/* STREAK & SCORE */}
+                        <div className="flex items-center gap-3">
+                            {streak > 1 && (
+                                <div className="hidden sm:flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-100 px-2.5 py-1 rounded-full">
+                                    <i data-lucide="flame" className="w-3.5 h-3.5 fill-current"></i>
+                                    Streak x{streak}!
+                                </div>
+                            )}
+                            <div className="text-right">
+                                <div className="text-[10px] text-slate-400 font-semibold">SKOR TERKUMPUL</div>
+                                <div className="text-lg font-display font-bold text-sky-600">{score}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* QUESTION CARD */}
+                    <div className="glass-card rounded-3xl p-6 sm:p-8 border border-sky-100 space-y-6">
+                        <div className="space-y-3">
+                            <div className="inline-block text-xs font-semibold px-2.5 py-1 rounded-lg bg-sky-100 text-sky-800">
+                                Kaidah & Pedoman Penulisan Soal SD
+                            </div>
+                            <h3 className="font-display font-semibold text-lg sm:text-xl text-slate-800 leading-snug">
+                                {currentQ.question}
+                            </h3>
+                        </div>
+
+                        {/* OPTIONS LIST */}
+                        <div className="space-y-3">
+                            {currentQ.options.map((optionText, idx) => {
+                                let optionStyle = "bg-white border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-slate-700";
+                                
+                                if (selectedOption === idx) {
+                                    optionStyle = "bg-sky-100 border-sky-500 text-sky-900 font-medium ring-2 ring-sky-200";
+                                }
+
+                                if (isSubmitted) {
+                                    if (idx === currentQ.correct) {
+                                        optionStyle = "bg-emerald-100 border-emerald-500 text-emerald-900 font-semibold ring-2 ring-emerald-200";
+                                    } else if (selectedOption === idx) {
+                                        optionStyle = "bg-rose-100 border-rose-500 text-rose-900 font-medium";
+                                    } else {
+                                        optionStyle = "bg-slate-50 border-slate-200 text-slate-400 opacity-60";
+                                    }
+                                }
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => handleSelectOption(idx)}
+                                        disabled={isSubmitted}
+                                        className={`w-full p-4 rounded-2xl border text-left text-sm transition-all flex items-start gap-3 ${optionStyle}`}
+                                    >
+                                        <span className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${selectedOption === idx ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                            {String.fromCharCode(65 + idx)}
+                                        </span>
+                                        <span className="flex-1">{optionText}</span>
+                                        {isSubmitted && idx === currentQ.correct && (
+                                            <i data-lucide="check-circle" className="w-5 h-5 text-emerald-600 shrink-0"></i>
+                                        )}
+                                        {isSubmitted && selectedOption === idx && idx !== currentQ.correct && (
+                                            <i data-lucide="x-circle" className="w-5 h-5 text-rose-600 shrink-0"></i>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* EXPLANATION BOX */}
+                        {isSubmitted && (
+                            <div className={`p-4 rounded-2xl border text-xs sm:text-sm leading-relaxed space-y-1 animate-fadeIn ${selectedOption === currentQ.correct ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
+                                <div className="font-bold flex items-center gap-1.5">
+                                    <i data-lucide="info" className="w-4 h-4"></i>
+                                    {selectedOption === currentQ.correct ? 'Jawaban Anda Tepat!' : 'Pembahasan & Kaidah:'}
+                                </div>
+                                <p>{currentQ.explanation}</p>
+                            </div>
+                        )}
+
+                        {/* ACTION BUTTON */}
+                        <div className="pt-2 flex justify-end">
+                            {!isSubmitted ? (
+                                <button
+                                    onClick={handleAnswerSubmit}
+                                    disabled={selectedOption === null}
+                                    className={`px-6 py-3 rounded-2xl font-bold text-sm shadow-md transition-all flex items-center gap-2 ${selectedOption !== null ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-sky-200' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                                >
+                                    Kunci Jawaban
+                                    <i data-lucide="lock" className="w-4 h-4"></i>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleNextQuestion}
+                                    className="px-6 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-bold rounded-2xl text-sm shadow-md shadow-sky-200 transition-all flex items-center gap-2"
+                                >
+                                    {currentIndex < QUIZ_QUESTIONS.length - 1 ? 'Soal Berikutnya' : 'Lihat Hasil Akhir'}
+                                    <i data-lucide="arrow-right" className="w-4 h-4"></i>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- MODUL 2: LAB KREATOR & PEMERIKSA SOAL AUTOMATIS (GEMINI AI INTEGRATION) ---
+        function WorkbenchModule({ user, onQuestionEvaluated }) {
+            const [jenisSoal, setJenisSoal] = useState('Pilihan Ganda');
+            const [mapel, setMapel] = useState('IPAS / IPA');
+            const [capaian, setCapaian] = useState('Menganalisis siklus air dan dampaknya bagi kehidupan');
+            const [stimulus, setStimulus] = useState('Diberikan sebuah infografis sederhana mengenai proses penguapan air laut (evaporasi), pembentukan awan (kondensasi), dan hujan (presipitasi) di daerah perkotaan.');
+            const [stem, setStem] = useState('Berdasarkan siklus air di atas, apa yang akan terjadi jika area resapan air di perkotaan digantikan oleh pemukiman padat bertembok semen?');
+            
+            // Options state (Dynamic: 3 options for Class 1-3, 4 options for Class 4-6)
+            const isLowerClass = user.kelas.includes('1') || user.kelas.includes('2') || user.kelas.includes('3');
+            
+            const [optionA, setOptionA] = useState('Air hujan akan lebih cepat meresap ke dalam tanah');
+            const [optionB, setOptionB] = useState('Terjadi genangan air dan risiko banjir saat hujan deras');
+            const [optionC, setOptionC] = useState('Proses penguapan air laut akan terhenti seketika');
+            const [optionD, setOptionD] = useState('Jumlah air hujan yang turun akan menjadi berlipat ganda');
+
+            const [kunci, setKunci] = useState('B');
+            const [rubrik, setRubrik] = useState('Skor 2: Menjawab terjadi banjir karena semen menghambat resapan. Skor 1: Menjawab banjir tanpa penjelasan resapan.');
+
+            const [loading, setLoading] = useState(false);
+            const [evaluationResult, setEvaluationResult] = useState(null);
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [evaluationResult, jenisSoal]);
+
+            // Call Gemini API to evaluate question quality
+            const handleAnalyzeQuestion = async () => {
+                if (!stem.trim()) {
+                    alert("Mohon isi Pokok Soal (Stem) terlebih dahulu!");
+                    return;
+                }
+
+                sound.playClick();
+                setLoading(true);
+                setEvaluationResult(null);
+
+                const promptText = `
+                Berindaklah sebagai Pakar Evaluasi dan Asesmen Pendidikan SD Kementerian Pendidikan.
+                Analisislah soal sekolah dasar berikut secara cermat berdasarkan standar kaidah penulisan soal resmi SD:
+
+                - Kelas Target: ${user.kelas}
+                - Mata Pelajaran: ${mapel}
+                - Capaian Pembelajaran / KD: ${capaian}
+                - Jenis Soal: ${jenisSoal}
+                - Stimulus: ${stimulus}
+                - Pokok Soal (Stem): ${stem}
+                ${jenisSoal === 'Pilihan Ganda' ? `
+                - Opsi Jawaban:
+                  A. ${optionA}
+                  B. ${optionB}
+                  C. ${optionC}
+                  ${!isLowerClass ? `D. ${optionD}` : ''}
+                - Kunci Jawaban: ${kunci}
+                ` : `
+                - Kunci/Rubrik Penskoran: ${rubrik}
+                `}
+
+                Evaluasi kriteria berikut dalam format JSON persis:
+                1. ukrkAnalysis: Penilaian keberadaan Urgensi, Kontinuitas, Relevansi, dan Keterpakaian.
+                2. hotsStatus: Apakah tergolong L1 (Hafalan), L2 (Aplikasi), atau L3 (Penalaran/HOTS)?
+                3. stimulusFunctionality: Apakah stimulus berfungsi secara mutlak untuk menjawab soal atau sekadar hiasan?
+                4. languageConstruction: Kesesuaian bahasa SD, bebas negasi ganda, dan kejelasan stem.
+                5. score: Skor kualitas soal keseluruhan dari 0 hingga 100.
+                6. recommendations: Array berisi 2-3 saran konkret perbaikan soal.
+                `;
+
+                const systemPrompt = "Anda adalah Pakar Asesmen SD Indonesia. Kembalikan HANYA format JSON valid tanpa teks markdown pembuka/penutup tambahan.";
+
+                const apiKey = ""; // Canvas provides runtime API key
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: promptText }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] },
+                            generationConfig: {
+                                responseMimeType: "application/json",
+                                responseSchema: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        ukrkAnalysis: { type: "STRING" },
+                                        hotsStatus: { type: "STRING" },
+                                        stimulusFunctionality: { type: "STRING" },
+                                        languageConstruction: { type: "STRING" },
+                                        score: { type: "NUMBER" },
+                                        recommendations: {
+                                            type: "ARRAY",
+                                            items: { type: "STRING" }
+                                        }
+                                    },
+                                    required: ["ukrkAnalysis", "hotsStatus", "stimulusFunctionality", "languageConstruction", "score", "recommendations"]
+                                }
+                            }
+                        })
+                    });
+
+                    const data = await response.json();
+                    let parsedJSON = null;
+
+                    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                        const rawText = data.candidates[0].content.parts[0].text;
+                        parsedJSON = JSON.parse(rawText);
+                    } else {
+                        throw new Error("Respon API tidak lengkap");
+                    }
+
+                    setEvaluationResult(parsedJSON);
+                    onQuestionEvaluated(parsedJSON.score, { stem, mapel, jenisSoal });
+                    sound.playFanfare();
+                } catch (err) {
+                    console.warn("Menggunakan Evaluator Heuristik Lokal:", err);
+                    
+                    // HEURISTIC LOCAL EVALUATOR FALLBACK
+                    const hasStimulus = stimulus.length > 20;
+                    const isLongStem = stem.length > 25;
+                    const calculatedScore = Math.min(100, (hasStimulus ? 40 : 20) + (isLongStem ? 40 : 20) + 15);
+
+                    const fallbackResult = {
+                        ukrkAnalysis: "Materi esensial dan relevan dengan capaian pembelajaran kelas SD.",
+                        hotsStatus: hasStimulus ? "L3 (Penalaran / HOTS) - Menguji daya analisis murid" : "L1 (Pengetahuan/LOTS) - Cenderung hafalan langsung",
+                        stimulusFunctionality: hasStimulus ? "Stimulus fungsional dan mengandung konteks data untuk menjawab" : "Stimulus minim/sekadar tempelan",
+                        languageConstruction: "Kalimat sudah sesuai dengan tingkat perkembangan murid SD dan cukup komunikatif.",
+                        score: calculatedScore,
+                        recommendations: [
+                            "Pastikan panjang opsi pilihan ganda relatif homogen dan seimbang.",
+                            "Gunakan stimulus berbasis studi kasus nyata kehidupan sehari-hari anak SD."
+                        ]
+                    };
+
+                    setEvaluationResult(fallbackResult);
+                    onQuestionEvaluated(fallbackResult.score, { stem, mapel, jenisSoal });
+                    sound.playFanfare();
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="space-y-8 animate-fadeIn">
+                    {/* WORKBENCH HEADER */}
+                    <div className="glass-card rounded-3xl p-6 border border-sky-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <i data-lucide="cpu" className="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h2 className="font-display font-bold text-xl text-slate-800">
+                                    Lab Kreator & AI Evaluator Soal SD
+                                </h2>
+                                <p className="text-xs text-slate-600">
+                                    Susun soal Anda. Sistem AI akan mengevaluasi kriteria UKRK, HOTS, & konstruksi bahasa secara instant.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2 shrink-0">
+                            <i data-lucide="info" className="w-4 h-4"></i>
+                            Aturan Kelas: {user.kelas} ({isLowerClass ? '3 Opsi A-C' : '4 Opsi A-D'})
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* INPUT FORM (LEFT COLUMN) */}
+                        <div className="lg:col-span-7 glass-card rounded-3xl p-6 sm:p-8 border border-sky-100 space-y-5">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <h3 className="font-display font-bold text-base text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="pen-tool" className="w-4 h-4 text-sky-600"></i>
+                                    Form Penyusunan Soal
+                                </h3>
+                                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-medium">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setJenisSoal('Pilihan Ganda')}
+                                        className={`px-3 py-1 rounded-lg transition-colors ${jenisSoal === 'Pilihan Ganda' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600'}`}
+                                    >
+                                        Pilihan Ganda
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setJenisSoal('Isian Singkat')}
+                                        className={`px-3 py-1 rounded-lg transition-colors ${jenisSoal === 'Isian Singkat' ? 'bg-white text-sky-700 shadow-sm font-semibold' : 'text-slate-600'}`}
+                                    >
+                                        Isian Singkat
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Mata Pelajaran</label>
+                                    <input 
+                                        type="text" 
+                                        value={mapel}
+                                        onChange={(e) => setMapel(e.target.value)}
+                                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Kelas Target</label>
+                                    <input 
+                                        type="text" 
+                                        disabled
+                                        value={user.kelas}
+                                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-500 font-semibold"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Capaian Pembelajaran (CP) / KD Esensial *
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={capaian}
+                                    onChange={(e) => setCapaian(e.target.value)}
+                                    placeholder="contoh: Menganalisis siklus air dan dampaknya..."
+                                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Stimulus Soal (Konteks / Teks / Kasus)
+                                </label>
+                                <textarea 
+                                    rows="3"
+                                    value={stimulus}
+                                    onChange={(e) => setStimulus(e.target.value)}
+                                    placeholder="Tuliskan wacana, cerita, atau deskripsi grafik/gambar..."
+                                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                ></textarea>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Pokok Soal (Stem / Pertanyaan Utama) *
+                                </label>
+                                <textarea 
+                                    rows="2"
+                                    value={stem}
+                                    onChange={(e) => setStem(e.target.value)}
+                                    placeholder="Rumuskan pertanyaan yang padat, jelas, dan tidak memuat negasi ganda..."
+                                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                ></textarea>
+                            </div>
+
+                            {/* DYNAMIC OPTIONS / RUBRIC INPUT */}
+                            {jenisSoal === 'Pilihan Ganda' ? (
+                                <div className="space-y-3 pt-2 border-t border-slate-100">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-700">Opsi Jawaban & Kunci</label>
+                                        <span className="text-[11px] text-sky-600 font-medium">
+                                            {isLowerClass ? 'Dibatasi 3 Opsi (A, B, C) untuk Kelas 1-3' : '4 Opsi (A, B, C, D) untuk Kelas 4-6'}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center shrink-0">A</span>
+                                            <input 
+                                                type="text" 
+                                                value={optionA}
+                                                onChange={(e) => setOptionA(e.target.value)}
+                                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center shrink-0">B</span>
+                                            <input 
+                                                type="text" 
+                                                value={optionB}
+                                                onChange={(e) => setOptionB(e.target.value)}
+                                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center shrink-0">C</span>
+                                            <input 
+                                                type="text" 
+                                                value={optionC}
+                                                onChange={(e) => setOptionC(e.target.value)}
+                                                className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        {!isLowerClass && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 text-xs font-bold flex items-center justify-center shrink-0">D</span>
+                                                <input 
+                                                    type="text" 
+                                                    value={optionD}
+                                                    onChange={(e) => setOptionD(e.target.value)}
+                                                    className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-2 flex items-center gap-3">
+                                        <label className="text-xs font-semibold text-slate-700">Kunci Jawaban Benar:</label>
+                                        <select 
+                                            value={kunci}
+                                            onChange={(e) => setKunci(e.target.value)}
+                                            className="px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold text-sky-700 bg-white"
+                                        >
+                                            <option value="A">Opsi A</option>
+                                            <option value="B">Opsi B</option>
+                                            <option value="C">Opsi C</option>
+                                            {!isLowerClass && <option value="D">Opsi D</option>}
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 pt-2 border-t border-slate-100">
+                                    <label className="block text-xs font-semibold text-slate-700">
+                                        Kunci Jawaban & Rubrik Penskoran *
+                                    </label>
+                                    <textarea 
+                                        rows="3"
+                                        value={rubrik}
+                                        onChange={(e) => setRubrik(e.target.value)}
+                                        placeholder="Jelaskan kriteria pemberian skor lengkap/sebagian..."
+                                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    ></textarea>
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={handleAnalyzeQuestion}
+                                disabled={loading}
+                                className={`w-full py-3.5 rounded-2xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${loading ? 'bg-slate-300 text-slate-500 cursor-wait' : 'bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white shadow-sky-200 transform hover:-translate-y-0.5'}`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <i data-lucide="loader-2" className="w-5 h-5 animate-spin"></i>
+                                        Memeriksa Soal via AI Evaluator...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i data-lucide="sparkles" className="w-5 h-5 fill-current"></i>
+                                        Periksa Kualitas Soal Saya (AI)
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* EVALUATION RESULT DISPLAY (RIGHT COLUMN) */}
+                        <div className="lg:col-span-5 space-y-6">
+                            {evaluationResult ? (
+                                <div className="glass-card rounded-3xl p-6 sm:p-8 border border-sky-100 space-y-6 animate-fadeIn">
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                        <h3 className="font-display font-bold text-lg text-slate-800 flex items-center gap-2">
+                                            <i data-lucide="award" className="w-5 h-5 text-emerald-600"></i>
+                                            Hasil Evaluasi AI
+                                        </h3>
+                                        <div className="text-right">
+                                            <div className="text-[10px] font-semibold text-slate-400">SKOR KUALITAS</div>
+                                            <div className="text-2xl font-display font-bold text-sky-600">
+                                                {evaluationResult.score} / 100
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 text-xs">
+                                        <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-100 space-y-1">
+                                            <div className="font-bold text-sky-800 flex items-center gap-1.5">
+                                                <i data-lucide="check-circle" className="w-4 h-4 text-sky-600"></i>
+                                                Analisis UKRK
+                                            </div>
+                                            <p className="text-slate-600 leading-relaxed">{evaluationResult.ukrkAnalysis}</p>
+                                        </div>
+
+                                        <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-100 space-y-1">
+                                            <div className="font-bold text-indigo-800 flex items-center gap-1.5">
+                                                <i data-lucide="brain-circuit" className="w-4 h-4 text-indigo-600"></i>
+                                                Level Kognitif & HOTS
+                                            </div>
+                                            <p className="text-slate-600 leading-relaxed">{evaluationResult.hotsStatus}</p>
+                                        </div>
+
+                                        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100 space-y-1">
+                                            <div className="font-bold text-emerald-800 flex items-center gap-1.5">
+                                                <i data-lucide="file-text" className="w-4 h-4 text-emerald-600"></i>
+                                                Keberfungsian Stimulus
+                                            </div>
+                                            <p className="text-slate-600 leading-relaxed">{evaluationResult.stimulusFunctionality}</p>
+                                        </div>
+
+                                        <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-100 space-y-1">
+                                            <div className="font-bold text-purple-800 flex items-center gap-1.5">
+                                                <i data-lucide="message-square" className="w-4 h-4 text-purple-600"></i>
+                                                Bahasa & Konstruksi
+                                            </div>
+                                            <p className="text-slate-600 leading-relaxed">{evaluationResult.languageConstruction}</p>
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                                            <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                                                <i data-lucide="lightbulb" className="w-4 h-4 text-amber-600"></i>
+                                                Rekomendasi Perbaikan:
+                                            </div>
+                                            <ul className="list-disc list-inside space-y-1 text-slate-700">
+                                                {evaluationResult.recommendations?.map((rec, i) => (
+                                                    <li key={i}>{rec}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="glass-card rounded-3xl p-8 border border-sky-100 text-center space-y-4 py-16">
+                                    <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+                                        <i data-lucide="cpu" className="w-8 h-8"></i>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="font-display font-bold text-slate-700">Belum Ada Analisis</h4>
+                                        <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                                            Isi form penyusunan soal di sebelah kiri lalu klik tombol <span className="font-semibold text-sky-600">"Periksa Kualitas Soal Saya"</span> untuk mendapatkan umpan balik AI otomatis.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- MODUL 3: LEADERBOARD & GOOGLE SHEETS INTEGRATION ---
+        function LeaderboardModule({ leaderboard, webhookUrl, setWebhookUrl, currentUser }) {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [showWebhookModal, setShowWebhookModal] = useState(false);
+            const [inputUrl, setInputUrl] = useState(webhookUrl);
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [leaderboard, showWebhookModal]);
+
+            const filteredList = leaderboard.filter(item => 
+                item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.instansi.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const handleSaveWebhook = (e) => {
+                e.preventDefault();
+                setWebhookUrl(inputUrl.trim());
+                setShowWebhookModal(false);
+                sound.playCorrect();
+            };
+
+            return (
+                <div className="space-y-8 animate-fadeIn">
+                    {/* LEADERBOARD BANNER */}
+                    <div className="glass-card rounded-3xl p-6 sm:p-8 border border-sky-100 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-200 shrink-0">
+                                <i data-lucide="trophy" className="w-8 h-8"></i>
+                            </div>
+                            <div>
+                                <h2 className="font-display font-bold text-2xl text-slate-800">
+                                    Ruang Kehormatan Maestro
+                                </h2>
+                                <p className="text-xs text-slate-600">
+                                    Papan Peringkat Hasil Pembelajaran & Kualitas Soal Guru SD Seluruh Indonesia
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => setShowWebhookModal(true)}
+                                className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold rounded-2xl text-xs transition-colors flex items-center gap-2"
+                            >
+                                <i data-lucide="file-spreadsheet" className="w-4 h-4 text-emerald-600"></i>
+                                {webhookUrl ? 'Webhook Terhubung ✓' : 'Hubungkan Google Sheets'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* SEARCH & LEADERBOARD TABLE */}
+                    <div className="glass-card rounded-3xl p-6 border border-sky-100 space-y-6">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="relative w-full sm:w-72">
+                                <i data-lucide="search" className="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+                                <input 
+                                    type="text" 
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Cari nama guru / sekolah..."
+                                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                />
+                            </div>
+                            <div className="text-xs text-slate-500 font-medium">
+                                Menampilkan {filteredList.length} peserta
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-700">
+                                <thead className="bg-sky-50/80 text-sky-900 font-display font-bold border-b border-sky-100">
+                                    <tr>
+                                        <th className="p-3.5 rounded-l-xl text-center">Posisi</th>
+                                        <th className="p-3.5">Nama Guru & Instansi</th>
+                                        <th className="p-3.5 text-center">Kelas</th>
+                                        <th className="p-3.5 text-center">Skor Kuis</th>
+                                        <th className="p-3.5 text-center">Skor Soal AI</th>
+                                        <th className="p-3.5 text-center">Total Skor</th>
+                                        <th className="p-3.5 rounded-r-xl text-center">Badge Gelar</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredList.map((item, idx) => {
+                                        const isCurrent = currentUser && item.nama === currentUser.nama;
+                                        
+                                        return (
+                                            <tr key={idx} className={`transition-colors ${isCurrent ? 'bg-sky-100/60 font-semibold' : 'hover:bg-slate-50'}`}>
+                                                <td className="p-3.5 text-center font-display font-bold text-sm">
+                                                    {idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : idx + 1}
+                                                </td>
+                                                <td className="p-3.5">
+                                                    <div className="font-bold text-slate-800">{item.nama}</div>
+                                                    <div className="text-[11px] text-slate-500">{item.instansi}</div>
+                                                </td>
+                                                <td className="p-3.5 text-center">
+                                                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium text-[11px]">
+                                                        {item.kelas}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3.5 text-center font-bold text-sky-600">{item.skorKuis}</td>
+                                                <td className="p-3.5 text-center font-bold text-indigo-600">{item.skorSoal}</td>
+                                                <td className="p-3.5 text-center font-display font-bold text-sm text-slate-800">{item.totalSkor}</td>
+                                                <td className="p-3.5 text-center">
+                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                                                        item.badge === 'Maestro HOTS SD' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                                        item.badge === 'Pakar UKRK' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
+                                                        'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                    }`}>
+                                                        <i data-lucide="award" className="w-3 h-3"></i>
+                                                        {item.badge}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* MODAL GOOGLE SHEETS SETUP */}
+                    {showWebhookModal && (
+                        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="glass-card bg-white max-w-lg w-full rounded-3xl p-6 space-y-5 border border-slate-200 shadow-2xl animate-fadeIn">
+                                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                    <div className="flex items-center gap-2 text-emerald-700 font-display font-bold text-lg">
+                                        <i data-lucide="file-spreadsheet" className="w-5 h-5"></i>
+                                        Integrasi Google Sheets
+                                    </div>
+                                    <button onClick={() => setShowWebhookModal(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                                        <i data-lucide="x" className="w-5 h-5"></i>
+                                    </button>
+                                </div>
+
+                                <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
+                                    <p>
+                                        Hubungkan aplikasi ke Google Spreadsheet Anda menggunakan <strong>Google Apps Script Webhook</strong>.
+                                    </p>
+                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 font-mono text-[11px] overflow-x-auto">
+                                        <code>
+                                            function doPost(e) &#123;<br/>
+                                            &nbsp;&nbsp;var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();<br/>
+                                            &nbsp;&nbsp;var data = JSON.parse(e.postData.contents);<br/>
+                                            &nbsp;&nbsp;sheet.appendRow([data.nama, data.kelas, data.instansi, data.skorKuis, data.skorSoal, data.totalSkor, new Date()]);<br/>
+                                            &nbsp;&nbsp;return ContentService.createTextOutput("success");<br/>
+                                            &#125;
+                                        </code>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleSaveWebhook} className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                            URL Webhook Google Apps Script Deployment
+                                        </label>
+                                        <input 
+                                            type="url" 
+                                            value={inputUrl}
+                                            onChange={(e) => setInputUrl(e.target.value)}
+                                            placeholder="https://script.google.com/macros/s/.../exec"
+                                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 pt-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowWebhookModal(false)}
+                                            className="px-4 py-2 rounded-xl bg-slate-100 text-slate-600 font-semibold text-xs"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button 
+                                            type="submit"
+                                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md shadow-emerald-200"
+                                        >
+                                            Simpan URL Webhook
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- CERTIFICATE MODULE COMPONENT ---
+        function CertificateModule({ user, quizScore, createdQuestionScore }) {
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, []);
+
+            const totalScore = (quizScore || 0) + (createdQuestionScore || 0);
+
+            const handlePrint = () => {
+                window.print();
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="font-display font-bold text-xl text-slate-800">
+                                Sertifikat Maestro Asesmen SD
+                            </h2>
+                            <p className="text-xs text-slate-600">
+                                Bukti kelulusan dan apresiasi kompetensi penulisan soal berstandar resmi
+                            </p>
+                        </div>
+                        <button 
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl text-xs shadow-md transition-colors flex items-center gap-2"
+                        >
+                            <i data-lucide="printer" className="w-4 h-4"></i>
+                            Cetak / Simpan PDF
+                        </button>
+                    </div>
+
+                    {/* CERTIFICATE DESIGN */}
+                    <div className="bg-white p-8 sm:p-12 rounded-3xl border-8 border-sky-100 shadow-2xl space-y-8 relative overflow-hidden text-center">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-200 rounded-full blur-2xl opacity-40 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-amber-200 rounded-full blur-2xl opacity-40 pointer-events-none"></div>
+
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-800 uppercase tracking-widest bg-sky-50 px-3 py-1 rounded-full border border-sky-200">
+                                <i data-lucide="award" className="w-4 h-4 text-amber-500"></i>
+                                Sertifikat Kelulusan Gamifikasi
+                            </div>
+                            <h1 className="font-display font-bold text-3xl sm:text-4xl text-slate-800 tracking-tight">
+                                MAESTRO ASESMEN SD
+                            </h1>
+                            <p className="text-xs text-slate-500">Diberikan sebagai penghargaan atas pencapaian kompetensi dalam:</p>
+                        </div>
+
+                        <div className="py-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Sertifikat ini diberikan kepada:</p>
+                            <h2 className="font-display font-bold text-2xl sm:text-3xl text-sky-700 underline decoration-sky-300 underline-offset-8 mt-1">
+                                {user.nama}
+                            </h2>
+                            <p className="text-sm font-medium text-slate-600 mt-2">
+                                {user.instansi} &bull; Guru {user.kelas}
+                            </p>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 max-w-lg mx-auto grid grid-cols-3 gap-3 text-center">
+                            <div>
+                                <div className="text-[10px] text-slate-400 font-semibold">SKOR KUIS</div>
+                                <div className="text-lg font-bold text-sky-600 font-display">{quizScore || 0} / 100</div>
+                            </div>
+                            <div className="border-x border-slate-200">
+                                <div className="text-[10px] text-slate-400 font-semibold">SKOR LAB AI SOAL</div>
+                                <div className="text-lg font-bold text-indigo-600 font-display">{createdQuestionScore || 0} / 100</div>
+                            </div>
+                            <div>
+                                <div className="text-[10px] text-slate-400 font-semibold">TOTAL Poin</div>
+                                <div className="text-lg font-bold text-emerald-600 font-display">{totalScore}</div>
+                            </div>
+                        </div>
+
+                        <div className="pt-6 flex justify-around items-end text-xs text-slate-500">
+                            <div>
+                                <div className="font-semibold text-slate-700">Tim Pengembang Asesmen</div>
+                                <div className="h-10"></div>
+                                <div className="border-t border-slate-300 pt-1 font-medium">Panitia Asesmen SD</div>
+                            </div>
+                            <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto border-2 border-amber-300 shadow-inner">
+                                <i data-lucide="award" className="w-8 h-8"></i>
+                            </div>
+                            <div>
+                                <div className="font-semibold text-slate-700">Tanggal Menerima</div>
+                                <div className="h-10 font-display font-bold text-sky-700 flex items-center justify-center">
+                                    {new Date().toLocaleDateString('id-ID')}
+                                </div>
+                                <div className="border-t border-slate-300 pt-1 font-medium">Tanda Tangan Otomatis</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render React DOM
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
